@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вгадай тваринку: Хто де живе та що їсть?</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for Friendly Rounded Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@500;700&family=Fredoka:wght@500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Comfortaa', 'Fredoka', cursive, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* Shake animation for incorrect choices */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-12px) rotate(-3deg); }
+            40%, 80% { transform: translateX(12px) rotate(3deg); }
+        }
+
+        .animate-shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        /* Bounce effect for interactive elements */
+        @keyframes pulse-bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .animate-pulse-bounce {
+            animation: pulse-bounce 2s infinite ease-in-out;
+        }
+
+        /* Success pop animation */
+        @keyframes pop-success {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .animate-pop {
+            animation: pop-success 0.4s ease-out forwards;
+        }
+
+        /* Custom soft shadows */
+        .card-shadow {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .card-shadow-hover {
+            box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.2), 0 10px 15px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Floating background shapes */
+        .bg-shape {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(40px);
+            z-index: 0;
+            opacity: 0.6;
+        }
+
+        /* Custom scrollbar hiding */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-amber-100 via-orange-100 to-sky-100 min-h-screen flex flex-col justify-between overflow-x-hidden relative text-slate-800">
+
+    <!-- Background Decorative Bubbles -->
+    <div class="bg-shape bg-yellow-300 w-72 h-72 -top-10 -left-10 animate-pulse"></div>
+    <div class="bg-shape bg-pink-300 w-80 h-80 top-1/2 -right-20 animate-pulse" style="animation-delay: 1s;"></div>
+    <div class="bg-shape bg-sky-300 w-72 h-72 -bottom-10 left-1/4 animate-pulse" style="animation-delay: 2s;"></div>
+
+    <!-- Canvas for Confetti Fireworks -->
+    <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-50 w-full h-full"></canvas>
+
+    <!-- Header Section -->
+    <header class="relative z-10 pt-4 px-4 max-w-4xl mx-auto w-full flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex items-center space-x-3 bg-white/80 backdrop-blur-md px-5 py-2.5 rounded-full shadow-md border border-white">
+            <span class="text-3xl">🐾</span>
+            <h1 class="text-xl sm:text-2xl font-bold bg-gradient-to-r from-orange-500 to-pink-600 bg-clip-text text-transparent">
+                Вгадай тваринку
+            </h1>
+        </div>
+
+        <!-- Controls & Sound Toggle -->
+        <div class="flex items-center space-x-3">
+            <button id="voice-toggle" onclick="toggleAudio()" class="bg-white/90 hover:bg-white text-slate-700 font-bold p-3 rounded-full shadow-md transition-all transform hover:scale-110 active:scale-95 flex items-center justify-center border border-white" title="Увімкнути/Вимкнути звук">
+                <span id="sound-icon" class="text-2xl">🔊</span>
+            </button>
+            <div class="bg-white/90 backdrop-blur-md px-5 py-2.5 rounded-full shadow-md border border-white flex items-center space-x-2">
+                <span class="text-2xl">⭐</span>
+                <span id="score-counter" class="text-xl font-bold text-amber-500">0</span>
+                <span class="text-slate-400 font-bold">/</span>
+                <span id="total-questions" class="text-xl font-bold text-slate-500">10</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="relative z-10 flex-grow flex items-center justify-center p-4">
+        <div class="w-full max-w-2xl bg-white/70 backdrop-blur-lg rounded-3xl p-6 sm:p-8 card-shadow border-4 border-white/80 transition-all">
+            
+            <!-- Progress Bar Container -->
+            <div class="w-full bg-slate-200/80 rounded-full h-4 mb-6 overflow-hidden p-0.5 border border-white">
+                <div id="progress-bar" class="bg-gradient-to-r from-amber-400 to-orange-500 h-full rounded-full transition-all duration-500 w-0"></div>
+            </div>
+
+            <!-- Quiz Screen -->
+            <div id="quiz-screen" class="flex flex-col items-center">
+                
+                <!-- Question Bubble Card -->
+                <div class="relative w-full bg-gradient-to-r from-sky-400 to-blue-500 rounded-3xl p-6 mb-8 text-center text-white shadow-lg border-4 border-sky-200 transform transition hover:scale-[1.01]">
+                    <button onclick="repeatQuestion()" class="absolute right-3 top-3 bg-white/20 hover:bg-white/40 p-2 rounded-full transition transform active:scale-90" title="Прослухати ще раз">
+                        <span class="text-xl">📢</span>
+                    </button>
+                    <div id="question-text" class="text-2xl sm:text-3xl font-bold leading-relaxed tracking-wide drop-shadow">
+                        Завантаження запитання...
+                    </div>
+                </div>
+
+                <!-- Answer Cards Grid (4 Option Buttons) -->
+                <div id="options-grid" class="grid grid-cols-2 gap-4 sm:gap-6 w-full">
+                    <!-- Cards will be populated dynamically -->
+                </div>
+
+                <!-- Praise/Feedback Message Banner -->
+                <div id="feedback-banner" class="h-12 mt-6 flex items-center justify-center text-2xl font-bold opacity-0 transition-opacity duration-300">
+                    <span id="feedback-text" class="px-6 py-2 rounded-full text-white bg-emerald-500 shadow-md">
+                        Молодець! 🌟
+                    </span>
+                </div>
+            </div>
+
+            <!-- Victory End Screen (Hidden by default) -->
+            <div id="victory-screen" class="hidden flex-col items-center text-center py-6 animate-pop">
+                <div class="text-7xl mb-4 animate-bounce">🏆</div>
+                <h2 class="text-3xl sm:text-4xl font-bold text-slate-800 mb-2">Ура! Вітаємо! 🎉</h2>
+                <p class="text-lg sm:text-xl text-slate-600 mb-6 font-bold">Ти пройшов усю гру та вгадав усіх тваринок!</p>
+                
+                <div class="bg-amber-100 border-2 border-amber-300 rounded-2xl p-4 mb-8 flex items-center justify-center space-x-3 w-full max-w-sm">
+                    <span class="text-3xl">⭐</span>
+                    <span class="text-2xl font-bold text-amber-700">Твій результат: <span id="final-score">10</span> з 10!</span>
+                </div>
+
+                <button onclick="restartGame()" class="bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-bold text-xl px-10 py-4 rounded-full shadow-lg transform transition hover:scale-105 active:scale-95 border-4 border-white flex items-center space-x-3">
+                    <span class="text-2xl">🔄</span>
+                    <span>Зіграти знову!</span>
+                </button>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative z-10 text-center py-3 text-slate-500 text-sm font-bold">
+        Зроблено з любов'ю для маленьких розумничків 🐾
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Game Database Questions
+        const quizData = [
+            {
+                question: "Хто любить їсти банан? 🍌",
+                options: [
+                    { name: "Мавпочка", emoji: "🐒" },
+                    { name: "Собачка", emoji: "🐶" },
+                    { name: "Зайчик", emoji: "🐰" },
+                    { name: "Котик", emoji: "🐱" }
+                ],
+                correctIndex: 0
+            },
+            {
+                question: "Хто живе у будці? 🐶",
+                options: [
+                    { name: "Котик", emoji: "🐱" },
+                    { name: "Собачка", emoji: "🐶" },
+                    { name: "Коровка", emoji: "🐮" },
+                    { name: "Мишка", emoji: "🐭" }
+                ],
+                correctIndex: 1
+            },
+            {
+                question: "Хто любить хрумкотіти морквою? 🥕",
+                options: [
+                    { name: "Ведмедик", emoji: "🐻" },
+                    { name: "Качка", emoji: "🦆" },
+                    { name: "Зайчик", emoji: "🐰" },
+                    { name: "Свинка", emoji: "🐷" }
+                ],
+                correctIndex: 2
+            },
+            {
+                question: "Хто дає смачне молоко? 🐮",
+                options: [
+                    { name: "Коровка", emoji: "🐮" },
+                    { name: "Білочка", emoji: "🐿️" },
+                    { name: "Курка", emoji: "🐔" },
+                    { name: "Мавпочка", emoji: "🐒" }
+                ],
+                correctIndex: 0
+            },
+            {
+                question: "Хто живе у ставу та любить плавати? 🦆",
+                options: [
+                    { name: "Зайчик", emoji: "🐰" },
+                    { name: "Качка", emoji: "🦆" },
+                    { name: "Собачка", emoji: "🐶" },
+                    { name: "Білочка", emoji: "🐿️" }
+                ],
+                correctIndex: 1
+            },
+            {
+                question: "Хто любить ласувати медом? 🐻",
+                options: [
+                    { name: "Котик", emoji: "🐱" },
+                    { name: "Свинка", emoji: "🐷" },
+                    { name: "Ведмедик", emoji: "🐻" },
+                    { name: "Курка", emoji: "🐔" }
+                ],
+                correctIndex: 2
+            },
+            {
+                question: "Хто любить їсти рибку та муркотіти? 🐱",
+                options: [
+                    { name: "Котик", emoji: "🐱" },
+                    { name: "Коровка", emoji: "🐮" },
+                    { name: "Зайчик", emoji: "🐰" },
+                    { name: "Мавпочка", emoji: "🐒" }
+                ],
+                correctIndex: 0
+            },
+            {
+                question: "Хто живе у дуплі та збирає горішки? 🐿️",
+                options: [
+                    { name: "Собачка", emoji: "🐶" },
+                    { name: "Білочка", emoji: "🐿️" },
+                    { name: "Качка", emoji: "🦆" },
+                    { name: "Свинка", emoji: "🐷" }
+                ],
+                correctIndex: 1
+            },
+            {
+                question: "Хто каже 'Хрю-хрю' та любить калюжі? 🐷",
+                options: [
+                    { name: "Курка", emoji: "🐔" },
+                    { name: "Ведмедик", emoji: "🐻" },
+                    { name: "Свинка", emoji: "🐷" },
+                    { name: "Котик", emoji: "🐱" }
+                ],
+                correctIndex: 2
+            },
+            {
+                question: "Хто живе в курнику та несе яйця? 🐔",
+                options: [
+                    { name: "Курка", emoji: "🐔" },
+                    { name: "Коровка", emoji: "🐮" },
+                    { name: "Мавпочка", emoji: "🐒" },
+                    { name: "Зайчик", emoji: "🐰" }
+                ],
+                correctIndex: 0
+            }
+        ];
+
+        // Praise Phrases Array for Voice & UI
+        const praises = [
+            "Молодець!",
+            "Супер!",
+            "Правильно! 🌟",
+            "Ти просто розумничок!",
+            "Чудово!",
+            "Геніально!",
+            "Так тримати!"
+        ];
+
+        // Game State Variables
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let isAudioEnabled = true;
+        let isAnsweringBlocked = false;
+        let audioCtx = null; // Web Audio API Context
+
+        // Web Speech API Voice Initialization
+        const synth = window.speechSynthesis;
+        let ukrainianVoice = null;
+
+        function loadVoices() {
+            if (!synth) return;
+            const voices = synth.getVoices();
+            // Try to find Ukrainian voice
+            ukrainianVoice = voices.find(v => v.lang.includes('uk') || v.lang.includes('UK')) || null;
+        }
+
+        if (synth) {
+            loadVoices();
+            if (synth.onvoiceschanged !== undefined) {
+                synth.onvoiceschanged = loadVoices;
+            }
+        }
+
+        // Initialize Web Audio API for Sound Effects
+        function initAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // Synthesize Sound Effects using Web Audio API
+        function playTone(freq, type, duration, delay = 0) {
+            if (!isAudioEnabled) return;
+            try {
+                initAudioContext();
+                setTimeout(() => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + duration);
+                }, delay);
+            } catch (e) {
+                console.log("Audio play error:", e);
+            }
+        }
+
+        // Play Happy Sound Effect (Correct Answer)
+        function playSuccessSound() {
+            playTone(523.25, 'triangle', 0.15, 0);   // C5
+            playTone(659.25, 'triangle', 0.15, 100); // E5
+            playTone(783.99, 'triangle', 0.15, 200); // G5
+            playTone(1046.50, 'triangle', 0.3, 300); // C6
+        }
+
+        // Play Soft Error Sound Effect (Wrong Answer)
+        function playErrorSound() {
+            playTone(300, 'sine', 0.2, 0);
+            playTone(250, 'sine', 0.25, 150);
+        }
+
+        // Play Fanfare for Victory Screen
+        function playVictorySound() {
+            const notes = [440, 554.37, 659.25, 880];
+            notes.forEach((freq, idx) => {
+                playTone(freq, 'triangle', 0.25, idx * 120);
+            });
+            setTimeout(() => {
+                playTone(880, 'triangle', 0.5, 600);
+            }, 100);
+        }
+
+        // Voice Speech Function (Text-to-Speech)
+        function speak(text, callback = null) {
+            if (!isAudioEnabled || !synth) {
+                if (callback) setTimeout(callback, 500);
+                return;
+            }
+
+            // Cancel any ongoing speech
+            synth.cancel();
+
+            // Remove emojis from text for cleaner speech output
+            const cleanText = text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
+
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = 'uk-UA';
+            if (ukrainianVoice) {
+                utterance.voice = ukrainianVoice;
+            }
+            utterance.rate = 0.9; // Slightly slower for kids
+            utterance.pitch = 1.1; // Friendly tone
+
+            if (callback) {
+                utterance.onend = callback;
+                utterance.onerror = callback;
+            }
+
+            synth.speak(utterance);
+        }
+
+        // Toggle Audio Speech & Sound
+        function toggleAudio() {
+            isAudioEnabled = !isAudioEnabled;
+            const icon = document.getElementById('sound-icon');
+            if (isAudioEnabled) {
+                icon.textContent = '🔊';
+                repeatQuestion();
+            } else {
+                icon.textContent = '🔇';
+                if (synth) synth.cancel();
+            }
+        }
+
+        // Initialize Game
+        function initGame() {
+            currentQuestionIndex = 0;
+            score = 0;
+            document.getElementById('total-questions').textContent = quizData.length;
+            document.getElementById('score-counter').textContent = score;
+            document.getElementById('victory-screen').classList.add('hidden');
+            document.getElementById('victory-screen').classList.remove('flex');
+            document.getElementById('quiz-screen').classList.remove('hidden');
+            document.getElementById('quiz-screen').classList.add('flex');
+            
+            loadQuestion();
+        }
+
+        // Load Question to Screen
+        function loadQuestion() {
+            isAnsweringBlocked = false;
+            const currentQuiz = quizData[currentQuestionIndex];
+            
+            // Update Progress Bar
+            const progressPercent = (currentQuestionIndex / quizData.length) * 100;
+            document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+
+            // Question Text
+            const qTextElem = document.getElementById('question-text');
+            qTextElem.textContent = currentQuiz.question;
+
+            // Reset Feedback Banner
+            const feedbackBanner = document.getElementById('feedback-banner');
+            feedbackBanner.classList.add('opacity-0');
+
+            // Render 4 Option Buttons
+            const grid = document.getElementById('options-grid');
+            grid.innerHTML = '';
+
+            const bgColors = [
+                'from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 border-amber-200',
+                'from-emerald-400 to-green-500 hover:from-emerald-500 hover:to-green-600 border-emerald-200',
+                'from-pink-400 to-rose-400 hover:from-pink-500 hover:to-rose-500 border-pink-200',
+                'from-purple-400 to-indigo-400 hover:from-purple-500 hover:to-indigo-500 border-purple-200'
+            ];
+
+            currentQuiz.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `btn-option bg-gradient-to-br ${bgColors[idx % 4]} text-white rounded-3xl p-4 sm:p-6 flex flex-col items-center justify-center border-4 shadow-md card-shadow transform transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer`;
+                btn.onclick = (e) => handleAnswer(idx, btn, e);
+
+                btn.innerHTML = `
+                    <span class="text-6xl sm:text-7xl mb-2 filter drop-shadow transform transition duration-300 hover:scale-110">${opt.emoji}</span>
+                    <span class="text-xl sm:text-2xl font-bold tracking-wide text-white drop-shadow-md">${opt.name}</span>
+                `;
+                grid.appendChild(btn);
+            });
+
+            // Speak Question
+            setTimeout(() => {
+                speak(currentQuiz.question);
+            }, 300);
+        }
+
+        // Repeat Question Button Click
+        function repeatQuestion() {
+            const currentQuiz = quizData[currentQuestionIndex];
+            speak(currentQuiz.question);
+        }
+
+        // Handle Answer Click
+        function handleAnswer(selectedIndex, btnElement, event) {
+            if (isAnsweringBlocked) return;
+            initAudioContext();
+
+            const currentQuiz = quizData[currentQuestionIndex];
+            const isCorrect = selectedIndex === currentQuiz.correctIndex;
+
+            // Speak the clicked animal name first
+            const selectedOption = currentQuiz.options[selectedIndex];
+
+            if (isCorrect) {
+                isAnsweringBlocked = true;
+                score++;
+                document.getElementById('score-counter').textContent = score;
+
+                // Visual Success Effects
+                btnElement.classList.add('ring-8', 'ring-emerald-300', 'animate-pop');
+                playSuccessSound();
+
+                // Trigger Confetti Fireworks
+                triggerConfetti(event.clientX || window.innerWidth / 2, event.clientY || window.innerHeight / 2);
+
+                // Show Feedback Phrase
+                const randomPraise = praises[Math.floor(Math.random() * praises.length)];
+                const feedbackBanner = document.getElementById('feedback-banner');
+                const feedbackText = document.getElementById('feedback-text');
+                feedbackText.textContent = randomPraise;
+                feedbackBanner.classList.remove('opacity-0');
+
+                // Audio Voice Praise
+                speak(`${selectedOption.name}! ${randomPraise}`, () => {
+                    setTimeout(() => {
+                        currentQuestionIndex++;
+                        if (currentQuestionIndex < quizData.length) {
+                            loadQuestion();
+                        } else {
+                            showVictoryScreen();
+                        }
+                    }, 400);
+                });
+
+            } else {
+                // Incorrect Choice Effect
+                btnElement.classList.add('animate-shake', 'opacity-70');
+                playErrorSound();
+
+                // Soft audio hint without negative words
+                speak(`${selectedOption.name}. Спробуй ще раз!`);
+
+                setTimeout(() => {
+                    btnElement.classList.remove('animate-shake');
+                }, 600);
+            }
+        }
+
+        // Show Final Victory Screen
+        function showVictoryScreen() {
+            document.getElementById('progress-bar').style.width = '100%';
+            document.getElementById('quiz-screen').classList.add('hidden');
+            document.getElementById('quiz-screen').classList.remove('flex');
+            
+            const victoryScreen = document.getElementById('victory-screen');
+            victoryScreen.classList.remove('hidden');
+            victoryScreen.classList.add('flex');
+
+            document.getElementById('final-score').textContent = score;
+
+            playVictorySound();
+            triggerFullConfetti();
+
+            speak("Ура! Вітаємо! Ти пройшов усю гру та вгадав усіх тваринок! Молодчинка!");
+        }
+
+        // Restart Game
+        function restartGame() {
+            initGame();
+        }
+
+        // =========================================================
+        // HTML5 Canvas Confetti Animation System
+        // =========================================================
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 12 + 6;
+                this.speedX = (Math.random() - 0.5) * 12;
+                this.speedY = (Math.random() - 0.5) * 12 - 4;
+                this.color = `hsl(${Math.random() * 360}, 90%, 60%)`;
+                this.rotation = Math.random() * 360;
+                this.rotationSpeed = (Math.random() - 0.5) * 10;
+                this.opacity = 1;
+                this.gravity = 0.2;
+            }
+
+            update() {
+                this.speedY += this.gravity;
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.rotation += this.rotationSpeed;
+                this.opacity -= 0.015;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate((this.rotation * Math.PI) / 180);
+                ctx.globalAlpha = Math.max(0, this.opacity);
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                ctx.restore();
+            }
+        }
+
+        function triggerConfetti(originX, originY) {
+            for (let i = 0; i < 40; i++) {
+                particles.push(new Particle(originX, originY));
+            }
+        }
+
+        function triggerFullConfetti() {
+            const count = 120;
+            for (let i = 0; i < count; i++) {
+                setTimeout(() => {
+                    const x = Math.random() * canvas.width;
+                    const y = (Math.random() * canvas.height) / 2;
+                    triggerConfetti(x, y);
+                }, i * 25);
+            }
+        }
+
+        function animateConfetti() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].opacity <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+            requestAnimationFrame(animateConfetti);
+        }
+        animateConfetti();
+
+        // Start Game on Window Load
+        window.onload = function() {
+            initGame();
+        };
+    </script>
+</body>
+</html>
